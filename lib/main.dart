@@ -1,3 +1,4 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'data/services/api_service.dart';
@@ -5,6 +6,7 @@ import 'data/services/api_service.dart';
 import 'bloc/job_list/job_list_bloc.dart';
 import 'bloc/job_detail/job_detail_bloc.dart';
 import 'presentation/pages/job_list_page.dart';
+
 
 void main() {
   runApp(MyApp());
@@ -19,8 +21,12 @@ class MyApp extends StatelessWidget {
     return MultiRepositoryProvider(
       providers: [
         RepositoryProvider(create: (context) => ApiService()),
-        // (Nanti bisa ditambah repository lain di sini)
+       
+        RepositoryProvider(
+          create: (context) => Connectivity(),
+        ),
       ],
+      
 
       // 2. Kita daftarkan semua BLoC di sini
       child: MultiBlocProvider(
@@ -29,12 +35,15 @@ class MyApp extends StatelessWidget {
             create: (context) => JobListBloc(
               // Ambil ApiService yang sudah disediakan di atas
               context.read<ApiService>(),
+              context.read<Connectivity>(),
             ),
           ),
 
           // KODE BARU
           BlocProvider(
-            create: (context) => JobDetailBloc(), // Panggil constructor kosong
+            create: (context) => JobDetailBloc(
+              // context.read<Connectivity>(),
+            ), // Panggil constructor kosong
           ),
         ],
 
