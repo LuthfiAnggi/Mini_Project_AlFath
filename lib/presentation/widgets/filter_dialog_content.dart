@@ -3,9 +3,11 @@
 import 'package:flutter/material.dart';
 
 
+typedef FilterCallback = void Function(Map<String, String> filters);
+
 class FilterWidgetContent extends StatefulWidget {
   // Kita tetap gunakan callback ini untuk memberi tahu parent saat ditutup
-  final VoidCallback onFilterApply;
+  final FilterCallback onFilterApply;
 
   const FilterWidgetContent({
     super.key,
@@ -17,12 +19,29 @@ class FilterWidgetContent extends StatefulWidget {
 }
 
 class _FilterWidgetContentState extends State<FilterWidgetContent> {
-  // State pilihan (biarkan sama)
-  String _selectedTipe = 'Semua';
-  String _gajiMin = 'Rp 0';
-  String _gajiMax = 'Rp 10 jt';
-  final List<String> _tipePekerjaan = ['Semua', 'Fulltime', 'Part-time', 'Internship'];
-  final List<String> _opsiGaji = ['Rp 0', 'Rp 2 jt', 'Rp 5 jt', 'Rp 10 jt'];
+ 
+  // 1. Ubah _tipePekerjaan menjadi List of Map
+  final List<Map<String, String>> _tipePekerjaan = [
+    {'label': 'Semua', 'value': 'Semua'},
+    {'label': 'Fulltime', 'value': 'Fulltime'},
+    {'label': 'Part-time', 'value': 'Partime'}, // <-- Perbaiki: Part-time -> Partime
+    {'label': 'Kontrak', 'value': 'Kontrak'},
+    {'label': 'Internship', 'value': 'Magang'}, // <-- Perbaiki: Internship -> Magang
+  ];
+
+  // Simpan 'value' yang dipilih
+  String _selectedTipeValue = 'Semua';
+
+  // 2. Ubah _opsiGaji menjadi List of Map
+  final List<Map<String, String>> _opsiGaji = [
+    {'label': 'Rp 0', 'value': '0'},
+    {'label': 'Rp 2 jt', 'value': '2000000'},
+    {'label': 'Rp 5 jt', 'value': '5000000'},
+    {'label': 'Rp 10 jt', 'value': '10000000'},
+  ];
+  // Simpan 'value' yang dipilih
+  String _gajiMinValue = '0';
+  String _gajiMaxValue = '10000000'; // Contoh
 
   @override
   Widget build(BuildContext context) {
@@ -64,24 +83,27 @@ class _FilterWidgetContentState extends State<FilterWidgetContent> {
             spacing: 8.0,
             runSpacing: 8.0,
             children: _tipePekerjaan.map((tipe) {
-              // ... (Kode ChoiceChip Anda tetap sama persis) ...
+              final label = tipe['label']!;
+              final value = tipe['value']!;
+              final isSelected = _selectedTipeValue == value;
+
               return ChoiceChip(
-                label: Text(tipe),
-                selected: _selectedTipe == tipe,
-                onSelected: (isSelected) {
-                  if (isSelected) {
-                    setState(() { _selectedTipe = tipe; });
+                label: Text(label),
+                selected: isSelected,
+                onSelected: (selected) {
+                  if (selected) {
+                    setState(() { _selectedTipeValue = value; });
                   }
                 },
                 selectedColor: Color(0xFFE0F7FA),
                 backgroundColor: Colors.grey[100],
                 labelStyle: TextStyle(
-                  color: _selectedTipe == tipe ? Colors.blue[800] : Colors.black,
+                  color: isSelected == tipe ? Colors.blue[800] : Colors.black,
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20.0),
                   side: BorderSide(
-                    color: _selectedTipe == tipe ? Colors.blue : Colors.grey[300]!,
+                    color: isSelected == tipe ? Colors.blue : Colors.grey[300]!,
                   ),
                 ),
               );
@@ -92,40 +114,33 @@ class _FilterWidgetContentState extends State<FilterWidgetContent> {
           // --- GAJI MINIMAL & MAKSIMAL ---
           Row(
             children: [
-              // --- GAJI MINIMAL ---
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Gaji minimal',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                    ),
+                    const Text('Gaji minimal', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8.0),
                     _buildGajiDropdown(
-                      value: _gajiMin,
+                      value: _gajiMinValue,
                       onChanged: (newValue) {
-                        setState(() { _gajiMin = newValue!; });
+                        setState(() { _gajiMinValue = newValue!; });
                       },
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 16.0),
-              // --- GAJI MAKSIMAL ---
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Gaji maksimal',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                    ),
+                    const Text('Gaji maksimal', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8.0),
                     _buildGajiDropdown(
-                      value: _gajiMax,
+                      // Anda bisa gunakan _opsiGaji yang sama atau yang berbeda
+                      value: _gajiMaxValue,
                       onChanged: (newValue) {
-                        setState(() { _gajiMax = newValue!; });
+                        setState(() { _gajiMaxValue = newValue!; });
                       },
                     ),
                   ],
@@ -133,14 +148,21 @@ class _FilterWidgetContentState extends State<FilterWidgetContent> {
               ),
             ],
           ),
+
           const SizedBox(height: 32.0),
 
           // --- TOMBOL FILTER ---
           ElevatedButton(
             onPressed: () {
-              // Panggil callback (yang akan menutup bottom sheet)
-              widget.onFilterApply();
+              // 3. KIRIM DATA YANG SUDAH BERSIH
+              final filters = {
+                'tipe': _selectedTipeValue,
+                'minimalGaji': _gajiMinValue,
+               'maksimalGaji': _gajiMaxValue, // (Jika API mendukung)
+              };
+              widget.onFilterApply(filters);
             },
+
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF34A8DB),
               minimumSize: const Size(double.infinity, 50),
@@ -168,21 +190,16 @@ class _FilterWidgetContentState extends State<FilterWidgetContent> {
     required ValueChanged<String?> onChanged,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12.0),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
+      // ... (Style container Anda) ...
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: value,
           isExpanded: true,
           icon: const Icon(Icons.keyboard_arrow_down),
-          items: _opsiGaji.map((String gaji) {
+          items: _opsiGaji.map((gaji) {
             return DropdownMenuItem<String>(
-              value: gaji,
-              child: Text(gaji),
+              value: gaji['value']!, // Kirim 'value' (angka)
+              child: Text(gaji['label']!), // Tampilkan 'label' (Rp)
             );
           }).toList(),
           onChanged: onChanged,

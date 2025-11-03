@@ -99,21 +99,21 @@ class Pekerjaan {
 
   // Bagian factory ini SANGAT PENTING untuk diubah
   factory Pekerjaan.fromJson(Map<String, dynamic> json) => Pekerjaan(
-        key: json["key"],
-        nama: json["nama"],
-        jenis: json["jenis"], // <-- DIUBAH (langsung ambil String)
-        lokasi: json["lokasi"], // <-- DIUBAH (langsung ambil String)
-        minimalGaji: json["minimalGaji"],
-        maksimalGaji: json["maksimalGaji"],
-        tipe: tipeValues.map[json["tipe"]]!, // Biarkan
-        workType: workTypeValues.map[json["work_type"]]!, // Biarkan
-        kategori: kategoriValues.map[json["kategori"]]!, // Biarkan
-        minimalPendidikan: json["minimalPendidikan"],
-        minimalPengalaman: json["minimalPengalaman"],
-        minimalUmur: json["minimalUmur"],
-        createdAt: json["created_at"], // <-- DIUBAH (langsung ambil String)
-        updatedAt: json["updated_at"], // <-- DIUBAH (langsung ambil String)
-        isApply: json["isApply"],
+        key: json["key"] ?? '', 
+        nama: json["nama"] ?? '',
+        jenis: json["jenis"] ?? '', // <-- DIUBAH (langsung ambil String)
+        lokasi: json["lokasi"] ?? '', // <-- DIUBAH (langsung ambil String)
+        minimalGaji: json["minimalGaji"] ?? 0,
+        maksimalGaji: json["maksimalGaji"] ?? 0,
+        tipe: tipeValues.map[json["tipe"]]?? Tipe.PARTIME, // Biarkan
+        workType: workTypeValues.map[json["work_type"]]?? WorkType.WFO, // Biarkan
+        kategori: kategoriValues.map[json["kategori"]] ?? Kategori.KOMPUTER_IT, // Biarkan
+        minimalPendidikan: json["minimalPendidikan"] ?? '',
+        minimalPengalaman: json["minimalPengalaman"] ?? '',
+        minimalUmur: json["minimalUmur"] ?? '',
+        createdAt: json["created_at"] ?? '', // <-- DIUBAH (langsung ambil String)
+        updatedAt: json["updated_at"] ?? '', // <-- DIUBAH (langsung ambil String)
+        isApply: json["isApply"] ?? false,
       );
 
   // Kita juga ubah toJson agar sesuai
@@ -243,18 +243,19 @@ class Meta {
     String toRawJson() => json.encode(toJson());
 
     factory Meta.fromJson(Map<String, dynamic> json) => Meta(
-        currentPage: json["current_page"],
-        firstPageUrl: json["first_page_url"],
-        from: json["from"],
-        lastPage: json["last_page"],
-        lastPageUrl: json["last_page_url"],
-        nextPageUrl: json["next_page_url"],
-        path: json["path"],
-        perPage: json["per_page"],
-        prevPageUrl: json["prev_page_url"],
-        to: json["to"],
-        total: json["total"],
-    );
+        // --- TAMBAHKAN '?? 0' DI SEMUA INT ---
+        currentPage: json["current_page"] ?? 0,
+        firstPageUrl: json["first_page_url"] ?? '',
+        from: json["from"] ?? 0,
+        lastPage: json["last_page"] ?? 0,
+        lastPageUrl: json["last_page_url"] ?? '',
+        nextPageUrl: json["next_page_url"] ?? '',
+        path: json["path"] ?? '',
+        perPage: json["per_page"] ?? 0,
+        prevPageUrl: json["prev_page_url"], // prevPageUrl boleh null (karena 'dynamic')
+        to: json["to"] ?? 0,
+        total: json["total"] ?? 0,
+      );
 
     Map<String, dynamic> toJson() => {
         "current_page": currentPage,

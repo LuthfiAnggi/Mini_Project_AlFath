@@ -6,6 +6,7 @@ import 'dart:io'; // Diperlukan untuk SocketException (meskipun kita cek string)
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:http/http.dart' as http; // Diperlukan untuk ClientException
+import 'package:rxdart/rxdart.dart';
 import 'job_list_event.dart';
 import 'job_list_state.dart';
 import '../../data/models/job_model.dart';
@@ -16,6 +17,12 @@ class _ConnectivityChanged extends JobListEvent {
   const _ConnectivityChanged(this.status);
 }
 
+EventTransformer<E> _debounceTransformer<E>(Duration duration) {
+  return (events, mapper) {
+    return events.debounceTime(duration).asyncExpand(mapper);
+  };
+}
+
 class JobListBloc extends Bloc<JobListEvent, JobListState> {
   final ApiService apiService;
   final Connectivity connectivity;
@@ -24,6 +31,13 @@ class JobListBloc extends Bloc<JobListEvent, JobListState> {
   JobListBloc(this.apiService, this.connectivity) : super(JobListInitial()) {
     on<FetchJobList>(_onFetchJobList);
     on<_ConnectivityChanged>(_onConnectivityChanged);
+
+    on<SearchQueryChanged>(
+      _onSearchQueryChanged,
+      // Terapkan debounce 500ms
+      transformer: _debounceTransformer(const Duration(milliseconds: 500)),
+    );
+
 
     _connectivitySubscription = connectivity.onConnectivityChanged.listen((result) {
       add(_ConnectivityChanged(result.first));
@@ -58,8 +72,11 @@ class JobListBloc extends Bloc<JobListEvent, JobListState> {
 
     try {
       // 2. LANGSUNG panggil API
-      final JobModel jobModel = await apiService.getJobs();
-      emit(JobListLoaded(jobModel)); // Jika sukses, tampilkan data
+      final JobModel jobModel = await apiService.getJobs(
+        filters: event.filters,
+        // Kita juga bisa kirim query dari sini jika ada
+      );
+      emit(JobListLoaded(jobModel));
 
     } catch (e) {
       print("!!! KESALAHAN JOB LIST BLOC: $e");
@@ -87,6 +104,32 @@ class JobListBloc extends Bloc<JobListEvent, JobListState> {
       // --- AKHIR PERBAIKAN ---
     }
   }
+
+  Future<void> _onSearchQueryChanged(
+    SearchQueryChanged event,
+    Emitter<JobListState> emit,
+  ) async {
+    // Tampilkan loading (shimmer)
+    emit(JobListLoading());
+
+    try {
+      // Panggil API dengan query pencarian
+      final JobModel jobModel = await apiService.getJobs(
+        searchQuery: event.query, // Kirim query
+        // Anda mungkin juga ingin mengirim filter yang sedang aktif
+      );
+      emit(JobListLoaded(jobModel));
+    } catch (e) {
+      // Tangani error seperti biasa
+      final errorMessage = e.toString().toLowerCase();
+      if (errorMessage.contains('socket') /*...dll...*/) {
+        emit(JobListError("Tidak ada koneksi internet"));
+      } else {
+        emit(JobListError(e.toString()));
+      }
+    }
+  }
+  
 
   @override
   Future<void> close() {

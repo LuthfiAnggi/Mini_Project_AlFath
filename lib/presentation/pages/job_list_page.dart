@@ -20,6 +20,9 @@ class JobListPage extends StatefulWidget {
 
 class _JobListPageState extends State<JobListPage> {
   // Kita tambahkan initState untuk memanggil fungsi tes dan BLoC
+
+  final _searchController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -30,10 +33,7 @@ class _JobListPageState extends State<JobListPage> {
     context.read<JobListBloc>().add(FetchJobList());
   }
 
-
-  
-
-  // build() Anda dimulai di sini 
+  // build() Anda dimulai di sini
   @override
   Widget build(BuildContext context) {
     final Color customOutlineColor = Color(0xFFE7ECFA);
@@ -60,6 +60,15 @@ class _JobListPageState extends State<JobListPage> {
               children: [
                 Expanded(
                   child: TextField(
+                    controller: _searchController, 
+                    // --- 3. GUNAKAN 'onChanged' ---
+                    onChanged: (query) {
+                      // Kirim event ke BLoC setiap kali teks berubah
+                      context.read<JobListBloc>().add(
+                        SearchQueryChanged(query),
+                      );
+                    },
+
                     decoration: InputDecoration(
                       hintText: "Cari Lowongan",
                       suffixIcon: Icon(Icons.search, color: Colors.grey),
@@ -99,9 +108,7 @@ class _JobListPageState extends State<JobListPage> {
                     onPressed: () {
                       showModalBottomSheet(
                         context: context,
-                        // Ini membuat sheet bisa di-scroll jika kontennya panjang
-                        isScrollControlled: true, 
-                        // Ini membuat sudut atasnya rounded
+                        isScrollControlled: true,
                         shape: const RoundedRectangleBorder(
                           borderRadius: BorderRadius.vertical(
                             top: Radius.circular(20.0),
@@ -109,10 +116,18 @@ class _JobListPageState extends State<JobListPage> {
                         ),
                         builder: (ctx) {
                           return FilterWidgetContent(
-                            onFilterApply: () {
-                              // Tutup bottom sheet
+                            // 1. PERBARUI 'onFilterApply'
+                            onFilterApply: (Map<String, String> filters) {
+                              // 'filters' adalah Map yang kita kirim dari langkah 1
+
+                              // 2. Tutup bottom sheet
                               Navigator.pop(context);
-                              // TODO: Panggil BLoC untuk filter data
+
+                              // 3. (UNTUK TES) Cetak data filter ke konsol
+                              print("Filter yang dipilih: $filters");
+                              context.read<JobListBloc>().add(
+                                FetchJobList(filters: filters),
+                              );
                             },
                           );
                         },
@@ -128,7 +143,6 @@ class _JobListPageState extends State<JobListPage> {
             Expanded(
               child: BlocBuilder<JobListBloc, JobListState>(
                 builder: (context, state) {
-
                   // state ketika loading bang
                   if (state is JobListLoading || state is JobListInitial) {
                     return ListView.builder(
@@ -145,7 +159,7 @@ class _JobListPageState extends State<JobListPage> {
                     if (state.message.contains("Tidak ada koneksi")) {
                       // Tampilkan halaman error koneksi
                       return ErorrConnection(); // (Pastikan nama class-nya benar)
-                    }else {
+                    } else {
                       // TAMBAHKAN 'ELSE' UNTUK ERROR LAIN (401, 500, dll)
                       return ErorrServer(
                         onRetry: () {
@@ -154,8 +168,38 @@ class _JobListPageState extends State<JobListPage> {
                       );
                     }
                   }
+
                   if (state is JobListLoaded) {
                     final jobList = state.jobModel.data;
+
+                    if (jobList.isEmpty) {
+                      // Jika daftar kosong, tampilkan pesan
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.search_off,
+                              size: 60,
+                              color: Colors.grey,
+                            ),
+                            SizedBox(height: 16),
+                            Text(
+                              'Tidak ada lowongan ditemukan',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                            Text(
+                              'Coba ubah filter pencarian Anda.',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
                     return ListView.builder(
                       itemCount: jobList.length,
                       itemBuilder: (context, index) {
@@ -164,7 +208,7 @@ class _JobListPageState extends State<JobListPage> {
                       },
                     );
                   }
-                  
+
                   return SizedBox.shrink();
                 },
               ),
