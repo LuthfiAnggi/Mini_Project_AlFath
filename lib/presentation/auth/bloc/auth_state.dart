@@ -38,16 +38,45 @@ class AuthEmailCheckFailure extends AuthState {
 class AuthLoginLoading extends AuthState {}
 
 class AuthLoginSuccess extends AuthState {
-  // TODO: Simpan token atau data user di sini
-  // final String token; 
-  // const AuthLoginSuccess(this.token);
-} 
+  // Tambahkan properti token
+  final String token;
+  const AuthLoginSuccess(this.token);
+
+  @override
+  List<Object> get props => [token];
+}
 
 class AuthLoginFailure extends AuthState {
   final String error;
   const AuthLoginFailure(this.error);
 }
-// TODO: Tambahkan state lain nanti, misalnya:
-// class AuthLoginLoading extends AuthState {}
-// class AuthLoginSuccess extends AuthState {}
-// class AuthLoginFailure extends AuthState {}
+
+// State saat registrasi sedang diproses
+class AuthRegisterLoading extends AuthState {}
+
+// State saat registrasi sukses (ini akan memicu bottom sheet)
+class AuthRegisterSuccess extends AuthState {}
+
+// State saat registrasi gagal
+class AuthRegisterFailure extends AuthState {
+  final String error;
+  const AuthRegisterFailure(this.error);
+}
+
+// State saat OTP sedang dikirim
+class AuthOtpSending extends AuthState {}
+
+// State saat OTP sukses terkirim (ini akan memicu navigasi)
+class AuthOtpSentSuccess extends AuthState {}
+
+// State saat OTP sedang diverifikasi
+class AuthOtpVerifying extends AuthState {}
+
+// State saat OTP sukses (saatnya ke HomePage)
+class AuthOtpVerifySuccess extends AuthState {}
+
+// State saat OTP gagal (ini adalah 'warning' Anda)
+class AuthOtpVerifyFailure extends AuthState {
+  final String error;
+  const AuthOtpVerifyFailure(this.error);
+}

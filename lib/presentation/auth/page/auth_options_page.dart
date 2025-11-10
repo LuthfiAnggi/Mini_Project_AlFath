@@ -1,7 +1,9 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mini_project1/config/theme_config.dart'; // Ganti nama proyek
 import 'package:mini_project1/gen/assets.gen.dart';
+import 'package:mini_project1/presentation/auth/bloc/auth_bloc.dart';
 import 'package:mini_project1/presentation/auth/page/login_Page.dart';
 import 'package:mini_project1/presentation/auth/widget/auth_background_widget.dart';
 import 'package:mini_project1/presentation/auth/widget/auth_footer_widget.dart';
@@ -72,10 +74,14 @@ class _BuildContent extends StatelessWidget {
               // 2. Tombol Pengguna
               _buildRoleButton(
                 context,
-                iconAsset: Assets.icons.icUsers, // <-- UBAH INI
+                iconAsset: Assets.icons.icUsers,
                 text: "Login Sebagai Pengguna",
                 onPressed: () {
-                  // Navigasi ke halaman login pengguna
+                  // Kita mengirim STRING "jobseeker" (bukan hash, bukan int)
+                  context.read<AuthBloc>().add(
+                    const AuthRoleSelected("jobseeker"),
+                  );
+
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => const LoginPage()),
@@ -91,11 +97,14 @@ class _BuildContent extends StatelessWidget {
               // 4. Tombol Perusahaan
               _buildRoleButton(
                 context,
-                iconAsset: Assets
-                    .icons
-                    .icBuilding, // <-- UBAH INI (pastikan nama aset benar)
+                iconAsset: Assets.icons.icBuilding,
                 text: "Login Sebagai Perusahaan",
                 onPressed: () {
+                  // Kita mengirim STRING "jobseeker" (bukan hash, bukan int)
+                  context.read<AuthBloc>().add(
+                    const AuthRoleSelected("company"),
+                  );
+
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => const LoginPage()),
@@ -121,7 +130,7 @@ class _BuildContent extends StatelessWidget {
     required VoidCallback onPressed,
   }) {
     // 2. Terapkan ukuran tetap dari Figma (width: 343, height: 48)
-    return SizedBox( 
+    return SizedBox(
       width: 343,
       height: 48,
       child: OutlinedButton(

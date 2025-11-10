@@ -1,31 +1,27 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-
-// TODO: Ganti import ini dengan path datasource Anda yang benar
 import 'package:mini_project1/core/data/datasource/auth_remote_datasource.dart';
-
+import 'package:mini_project1/core/data/service/session_service.dart';
 part 'auth_event.dart';
 part 'auth_state.dart';
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
-  // 1. TAMBAHKAN DEPENDENCY
   // BLoC membutuhkan Datasource untuk memanggil API
   final AuthRemoteDatasource _authDatasource;
+  final SessionService _sessionService;
+  String? _selectedRole;
 
   // 2. PERBARUI CONSTRUCTOR
-  // Kita "menyuntikkan" (inject) datasource ke dalam BLoC
-  AuthBloc(this._authDatasource) : super(AuthInitial()) {
-    
-    // 3. DAFTARKAN EVENT HANDLER
+  AuthBloc(this._authDatasource, this._sessionService) : super(AuthInitial()) {
     // Saat event 'AuthCheckEmailPressed' masuk, panggil method '_onCheckEmail'
     on<AuthCheckEmailPressed>(_onCheckEmail);
     on<AuthLoginPressed>(_onLogin);
-
-    // TODO: Daftarkan event lain nanti
-    // on<AuthLoginPressed>(_onLogin);
+    on<AuthRegisterPressed>(_onRegister);
+    on<AuthSendOtpEmailPressed>(_onSendOtpEmail);
+    on<AuthRoleSelected>(_onRoleSelected);
+    on<AuthVerifyOtpPressed>(_onVerifyOtp);
   }
 
-  // 4. IMPLEMENTASIKAN METHOD HANDLER
   // Ini adalah logika bisnis Anda
   Future<void> _onCheckEmail(
     AuthCheckEmailPressed event,
@@ -46,21 +42,89 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
 
+  Future<void> _onLogin(AuthLoginPressed event, Emitter<AuthState> emit) async {
+    emit(AuthLoginLoading());
+    try {
+      // 1. Dapatkan token dari API
+      final token = await _authDatasource.login(event.email, event.password);
 
-  Future<void> _onLogin(
-  AuthLoginPressed event,
+      // 2. SIMPAN TOKEN KE HIVE (INI YANG HILANG)
+      await _sessionService.saveToken(token);
+
+      // 3. Keluarkan state sukses
+      emit(AuthLoginSuccess(token)); // Kirim token ke state
+    } catch (e) {
+      emit(AuthLoginFailure(e.toString()));
+    }
+  }
+
+  Future<void> _onRegister(
+    AuthRegisterPressed event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(AuthRegisterLoading());
+    try {
+      if (_selectedRole == null) {
+        // <-- GANTI INI
+        throw Exception("Role belum dipilih.");
+      }
+      final token = await _authDatasource.register(
+        email: event.email,
+        name: event.name,
+        phone: event.phone,
+        password: event.password,
+        role:
+            _selectedRole!, // <-- Pastikan Anda mengirim 'role' (bukan 'roleHash')
+      );
+
+      print("--- TOKEN REGISTRASI BARU (UNTUK POSTMAN) ---");
+      print(token);
+      print("---------------------------------------------");
+
+      // SIMPAN TOKEN KE HIVE
+      await _sessionService.saveToken(token);
+
+      // Keluarkan state sukses (untuk memicu modal)
+      emit(AuthRegisterSuccess());
+    } catch (e) {
+      emit(AuthRegisterFailure(e.toString()));
+    }
+  }
+
+  // --- 5. TAMBAHKAN METHOD _onSendOtpEmail ---
+  Future<void> _onSendOtpEmail(
+    AuthSendOtpEmailPressed event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(AuthOtpSending());
+    try {
+      await _authDatasource.sendOtpEmail(event.email);
+      emit(AuthOtpSentSuccess());
+    } catch (e) {
+      // --- PERBAIKANNYA ---
+      // Keluarkan state error agar UI bisa menampilkan Snackbar
+      emit(AuthRegisterFailure(e.toString()));
+      // (Atau buat state baru: 'AuthOtpFailure')
+    }
+  }
+
+  // Method baru untuk menyimpan role
+  void _onRoleSelected(AuthRoleSelected event, Emitter<AuthState> emit) {
+    _selectedRole = event.role; // <-- Sesuaikan
+  }
+
+  Future<void> _onVerifyOtp(
+  AuthVerifyOtpPressed event,
   Emitter<AuthState> emit,
 ) async {
-  emit(AuthLoginLoading());
+  emit(AuthOtpVerifying());
   try {
-    final token = await _authDatasource.login(event.email, event.password);
-    emit(AuthLoginSuccess(/* token */)); // Kirim token jika perlu
+    // Panggil method baru (hanya perlu event.otp)
+    await _authDatasource.verifyEmailOtp(event.otp); 
+    emit(AuthOtpVerifySuccess());
   } catch (e) {
-    emit(AuthLoginFailure(e.toString()));
+    // Ini sekarang akan melempar pesan error yang BENAR dari API
+    emit(AuthOtpVerifyFailure(e.toString()));
   }
 }
-
-  // TODO: Tambahkan method handler lain nanti
-  // Future<void> _onLogin(...) async { ... }
-  // Future<void> _onRegister(...) async { ... }
 }

@@ -1,18 +1,18 @@
 import 'dart:convert'; // Diperlukan untuk jsonEncode dan jsonDecode
 import 'package:http/http.dart' as http;
+import 'package:crypto/crypto.dart'; // Diperlukan untuk sha256
+import 'package:mini_project1/core/data/service/session_service.dart';
 
 class AuthRemoteDatasource {
-  // TODO: Ganti dengan URL API Anda yang sebenarnya
-  // Ambil dari Postman Anda
+  
   final String _baseUrl = "https://kkloker.partnercoding.com";
+  final SessionService _sessionService;
 
-  /// Mengecek apakah email sudah terdaftar di server.
-  ///
+  AuthRemoteDatasource(this._sessionService);
+
   /// Mengirim `POST` request ke `url/api/checkEmail`.
-  /// Mengembalikan `true` jika terdaftar, `false` jika tidak.
   Future<bool> checkEmail(String email) async {
     // 1. Siapkan URL lengkap
-    // Ganti 'api/checkEmail' jika endpoint Anda berbeda
     final url = Uri.parse('$_baseUrl/api/checkEmail');
 
     // 2. Siapkan headers untuk memberi tahu server bahwa kita mengirim JSON
@@ -60,7 +60,6 @@ class AuthRemoteDatasource {
   }
 
   Future<String> login(String email, String password) async {
-    // TODO: Ganti 'api/login' dengan endpoint login Anda dari Postman
     final url = Uri.parse('$_baseUrl/api/login');
 
     final headers = {
@@ -99,4 +98,126 @@ class AuthRemoteDatasource {
       throw Exception('Gagal memproses data: $e');
     }
   }
+
+  // METHOD UNTUK REGISTRASI
+  // Mengembalikan 'token' (JWT) berdasarkan JSON Anda
+  Future<String> register({
+    required String email,
+    required String name,
+    required String phone,
+    required String password,
+    required String role,
+  }) async {
+    final url = Uri.parse('$_baseUrl/api/register');
+
+    // buat hash
+    var bytes = utf8.encode(role); // 'role' (misal "jobseeker")
+    var digest = sha256.convert(bytes);
+    String roleHash = digest.toString();
+
+    // --- 2. SIAPKAN HEADERS BARU ---
+    final headers = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest', // <-- WAJIB ADA
+      'X-Role-Hash': roleHash, // <-- WAJIB ADA (menggunakan hash di atas)
+    };
+    final body = jsonEncode({
+      'email': email,
+      'name': name,
+      'phoneNumber': phone, // <-- SESUAIKAN KEY INI DENGAN API ANDA
+      'password': password,
+      'password_confirmation': password,
+    });
+
+    try {
+      final response = await http.post(url, headers: headers, body: body);
+      final data = jsonDecode(response.body);
+
+      // Cek jika API sukses
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // AMBIL TOKEN DARI JSON (sesuai file Postman Anda)
+        if (data['data'] != null && data['data']['token'] != null) {
+          return data['data']['token'] as String;
+        } else {
+          throw Exception('Format respons token tidak dikenal.');
+        }
+      } else {
+        // Jika registrasi GAGAL
+        final String message = data['meta']?['message'] ?? 'Registrasi gagal';
+        throw Exception(message);
+      }
+    } catch (e) {
+      throw Exception('Gagal memproses data: $e');
+    }
+  }
+
+  // METHOD UNTUK verif OTP 
+  Future<void> sendOtpEmail(String email) async {
+    final url = Uri.parse('$_baseUrl/api/sendOTPEmail');
+    // --- 1. AMBIL TOKEN (PENTING) ---
+    final token = _sessionService.getToken();
+    if (token == null) {
+      throw Exception('Token tidak ditemukan di sesi lokal.');
+    }
+
+    // --- 2. TAMBAHKAN TOKEN KE HEADERS (PENTING) ---
+    final headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Authorization': 'Bearer $token', // <-- INI YANG MUNGKIN HILANG
+    };
+
+    final body = jsonEncode({'email': email});
+
+    try {
+      final response = await http.post(url, headers: headers, body: body);
+      final data = jsonDecode(response.body);
+
+      if (data['meta']?['status_code'] != 200) {
+        final String message = data['meta']?['message'] ?? 'Gagal mengirim OTP';
+        throw Exception(message);
+      }
+      // Jika sukses (200), tidak perlu mengembalikan apa-apa
+    } catch (e) {
+      throw Exception('Gagal memproses data: $e');
+    }
+  }
+
+
+  Future<void> verifyEmailOtp(String otp) async {
+  // TODO: Ganti 'api/verifyEmailOTP' dengan endpoint Anda yang sebenarnya
+  final url = Uri.parse('$_baseUrl/api/verificationEmail');
+
+  // Ambil token login dari Hive
+  final token = _sessionService.getToken();
+  if (token == null) {
+    throw Exception('Token tidak ditemukan di sesi lokal.');
+  }
+
+  final headers = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'Authorization': 'Bearer $token', // Kirim token login
+  };
+
+  final body = jsonEncode({
+    'verificationToken': otp, // <-- KEY YANG BENAR
+  });
+
+  try {
+    final response = await http.post(url, headers: headers, body: body);
+    final data = jsonDecode(response.body);
+
+    // 5. PENANGANAN ERROR YANG LEBIH BAIK
+    if (data['meta']?['status_code'] != 200) {
+      // Tampilkan pesan error ASLI dari server
+      final String message = data['meta']?['message'] ?? 'Verifikasi OTP gagal';
+      throw Exception(message);
+    }
+    // Jika sukses (200), tidak perlu mengembalikan apa-apa
+  } catch (e) {
+    throw Exception('Gagal memproses data: $e');
+  }
+}
 }

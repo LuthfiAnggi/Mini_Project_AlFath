@@ -6,6 +6,7 @@ import 'package:mini_project1/presentation/auth/page/register_page.dart';
 import 'package:mini_project1/presentation/auth/widget/auth_header_widget.dart';
 import 'package:mini_project1/presentation/auth/widget/form_label_widget.dart';
 import 'package:mini_project1/presentation/auth/widget/custom_text_form_field_widget.dart';
+import 'package:mini_project1/presentation/work/page/work_page.dart';
 
 class LoginEmailPage extends StatefulWidget {
   const LoginEmailPage({super.key});
@@ -118,11 +119,11 @@ class _LoginEmailPageState extends State<LoginEmailPage> {
             // 4. JIKA LOGIN SUKSES
             // TODO: Navigasi ke Halaman Home / Dashboard
             // Navigator.pushAndRemoveUntil( ... ke HomePage ... );
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Login Berhasil!'),
-                backgroundColor: Colors.green,
-              ),
+            // Navigasi ke Halaman JobListPage
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => const JobListPage()),
+              (route) => false, // Hapus semua halaman auth
             );
           } else if (state is AuthLoginFailure) {
             // 5. JIKA LOGIN GAGAL (misal: password salah)

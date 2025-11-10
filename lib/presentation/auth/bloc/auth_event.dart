@@ -25,6 +25,42 @@ class AuthLoginPressed extends AuthEvent {
   const AuthLoginPressed(this.email, this.password);
 }
 
-// TODO: Tambahkan event lain nanti, misalnya:
-// class AuthLoginPressed extends AuthEvent { ... }
-// class AuthRegisterPressed extends AuthEvent { ... }
+// Event untuk menekan tombol "Daftar"
+class AuthRegisterPressed extends AuthEvent {
+  final String email;
+  final String name;
+  final String phone;
+  final String password;
+
+
+  const AuthRegisterPressed({
+    required this.email,
+    required this.name,
+    required this.phone,
+    required this.password,
+  });
+}
+
+// Event baru untuk menyimpan role
+class AuthRoleSelected extends AuthEvent {
+  final String role; 
+  const AuthRoleSelected(this.role);
+
+  @override
+  List<Object> get props => [role];
+}
+
+// Event untuk menekan tombol "Kirim OTP melalui email"
+class AuthSendOtpEmailPressed extends AuthEvent {
+  final String email;
+  const AuthSendOtpEmailPressed({required this.email});
+}
+
+// Event untuk menekan tombol "Daftar" (verifikasi OTP)
+class AuthVerifyOtpPressed extends AuthEvent {
+  final String otp;
+  const AuthVerifyOtpPressed({required this.otp});
+
+  @override
+  List<Object> get props => [otp];
+}
