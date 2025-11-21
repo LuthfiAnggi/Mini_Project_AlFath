@@ -20,6 +20,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthSendOtpEmailPressed>(_onSendOtpEmail);
     on<AuthRoleSelected>(_onRoleSelected);
     on<AuthVerifyOtpPressed>(_onVerifyOtp);
+    on<AuthGoogleSignInPressed>(_onGoogleSignIn);
+    on<AuthLogoutPressed>(_onLogout);
   }
 
   // Ini adalah logika bisnis Anda
@@ -114,17 +116,55 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }
 
   Future<void> _onVerifyOtp(
-  AuthVerifyOtpPressed event,
-  Emitter<AuthState> emit,
-) async {
-  emit(AuthOtpVerifying());
-  try {
-    // Panggil method baru (hanya perlu event.otp)
-    await _authDatasource.verifyEmailOtp(event.otp); 
-    emit(AuthOtpVerifySuccess());
-  } catch (e) {
-    // Ini sekarang akan melempar pesan error yang BENAR dari API
-    emit(AuthOtpVerifyFailure(e.toString()));
+    AuthVerifyOtpPressed event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(AuthOtpVerifying());
+    try {
+      // Panggil method baru (hanya perlu event.otp)
+      await _authDatasource.verifyEmailOtp(event.otp);
+      emit(AuthOtpVerifySuccess());
+    } catch (e) {
+      // Ini sekarang akan melempar pesan error yang BENAR dari API
+      emit(AuthOtpVerifyFailure(e.toString()));
+    }
   }
-}
+
+  // Method handler untuk Google Sign In
+  Future<void> _onGoogleSignIn(
+    AuthGoogleSignInPressed event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(AuthLoginLoading());
+    try {
+      if (_selectedRole == null) {
+        throw Exception("Role hash belum dipilih.");
+      }
+
+      // _selectedRole harus berupa string "jobseeker" atau "company"
+      // BUKAN hash yang sudah di-hash
+      final token = await _authDatasource.loginWithGoogle(
+        googleTokenId: event.idToken,
+        role: _selectedRole!, // "jobseeker" atau "company"
+      );
+
+      await _sessionService.saveToken(token);
+      emit(AuthLoginSuccess(token));
+    } catch (e) {
+      print('Google Sign In Error: $e');
+      emit(AuthLoginFailure(e.toString()));
+    }
+  }
+
+  Future<void> _onLogout(
+    AuthLogoutPressed event,
+    Emitter<AuthState> emit,
+  ) async {
+    // 1. Hapus token dari Hive
+    await _sessionService.deleteToken();
+
+    // 2. Kembalikan state ke AuthInitial
+    //    (Kita akan gunakan ini untuk memicu navigasi)
+    emit(AuthInitial());
+  }
 }

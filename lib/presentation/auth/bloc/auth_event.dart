@@ -64,3 +64,16 @@ class AuthVerifyOtpPressed extends AuthEvent {
   @override
   List<Object> get props => [otp];
 }
+
+// Event untuk menekan tombol "Lanjutkan dengan Google"
+class AuthGoogleSignInPressed extends AuthEvent {
+  final String idToken; // Ini adalah token dari Google
+  const AuthGoogleSignInPressed(this.idToken);
+
+  @override
+  List<Object> get props => [idToken];
+}
+
+class AuthLogoutPressed extends AuthEvent {
+  const AuthLogoutPressed();
+}

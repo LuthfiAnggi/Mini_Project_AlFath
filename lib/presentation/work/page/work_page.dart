@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mini_project1/presentation/auth/page/auth_options_page.dart';
 import 'package:mini_project1/presentation/error/error_connection_page.dart';
 import 'package:mini_project1/presentation/error/error_server_page.dart';
 import 'package:mini_project1/presentation/work/widget/work_list_shimmer.dart';
@@ -9,6 +10,8 @@ import '../bloc/job_list/job_list_event.dart';
 import '../bloc/job_list/job_list_state.dart';
 import '../widget/card_work_vacancy_widget.dart';
 import '../../../core/data/model/job_model.dart';
+
+import 'package:mini_project1/presentation/auth/bloc/auth_bloc.dart';
 // import 'package:http/http.dart' as http;
 
 class JobListPage extends StatefulWidget {
@@ -38,184 +41,213 @@ class _JobListPageState extends State<JobListPage> {
   Widget build(BuildContext context) {
     final Color customOutlineColor = Color(0xFFE7ECFA);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Lowongan Kerja'),
-        leading: IconButton(
-          icon: Image.asset('assets/ic_arrow-left.png', width: 24, height: 24),
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        foregroundColor: Colors.black,
-      ),
-      backgroundColor: Colors.white,
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchController, 
-                    // --- 3. GUNAKAN 'onChanged' ---
-                    onChanged: (query) {
-                      // Kirim event ke BLoC setiap kali teks berubah
-                      context.read<JobListBloc>().add(
-                        SearchQueryChanged(query),
-                      );
-                    },
-
-                    decoration: InputDecoration(
-                      hintText: "Cari Lowongan",
-                      suffixIcon: Icon(Icons.search, color: Colors.grey),
-                      filled: true,
-                      fillColor: Colors.white,
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8.0),
-                        borderSide: BorderSide(
-                          color: customOutlineColor,
-                          width: 2.0,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8.0),
-                        borderSide: BorderSide(
-                          color: customOutlineColor,
-                          width: 2.0,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(width: 8.0),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8.0),
-                    border: Border.all(color: customOutlineColor, width: 2.0),
-                  ),
-                  child: IconButton(
-                    icon: Image.asset(
-                      "assets/ic_filter.png",
-                      width: 24,
-                      height: 24,
-                      color: Colors.black87,
-                    ),
-                    onPressed: () {
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        shape: const RoundedRectangleBorder(
-                          borderRadius: BorderRadius.vertical(
-                            top: Radius.circular(20.0),
-                          ),
-                        ),
-                        builder: (ctx) {
-                          return FilterWidgetContent(
-                            // 1. PERBARUI 'onFilterApply'
-                            onFilterApply: (Map<String, String> filters) {
-                              // 'filters' adalah Map yang kita kirim dari langkah 1
-
-                              // 2. Tutup bottom sheet
-                              Navigator.pop(context);
-
-                              // 3. (UNTUK TES) Cetak data filter ke konsol
-                              print("Filter yang dipilih: $filters");
-                              context.read<JobListBloc>().add(
-                                FetchJobList(filters: filters),
-                              );
-                            },
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        // "Dengarkan" BLoC. Jika state-nya AuthInitial...
+        if (state is AuthInitial) {
+          // (AuthInitial adalah state yang kita kirim saat logout)
+          // Paksa navigasi kembali ke halaman login (AuthOptionsPage)
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const AuthOptionsPage()),
+            (route) => false, // Hapus semua halaman (termasuk JobListPage)
+          );
+        }
+      },
+      child: Scaffold(
+        // <-- Scaffold Anda sekarang ada di dalam 'child'
+        appBar: AppBar(
+          title: Text('Lowongan Kerja'),
+          leading: IconButton(
+            icon: Image.asset(
+              'assets/icons/ic_arrow-left.png',
+              width: 24,
+              height: 24,
             ),
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+          ),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          foregroundColor: Colors.black,
 
-            SizedBox(height: 20),
-
-            Expanded(
-              child: BlocBuilder<JobListBloc, JobListState>(
-                builder: (context, state) {
-                  // state ketika loading bang
-                  if (state is JobListLoading || state is JobListInitial) {
-                    return ListView.builder(
-                      itemCount: 5, // Tampilkan 5 skeleton item
-                      itemBuilder: (context, index) {
-                        return JobListItemSkeleton(); // Panggil widget skeleton
-                      },
-                    );
-                  }
-
-                  //state ketika erorr connection
-                  if (state is JobListError) {
-                    // --- 3. BEDAKAN TIPE ERROR ---
-                    if (state.message.contains("Tidak ada koneksi")) {
-                      // Tampilkan halaman error koneksi
-                      return ErorrConnection(); // (Pastikan nama class-nya benar)
-                    } else {
-                      // TAMBAHKAN 'ELSE' UNTUK ERROR LAIN (401, 500, dll)
-                      return ErorrServer(
-                        onRetry: () {
-                          context.read<JobListBloc>().add(FetchJobList());
-                        },
-                      );
-                    }
-                  }
-
-                  if (state is JobListLoaded) {
-                    final jobList = state.jobModel.data;
-
-                    if (jobList.isEmpty) {
-                      // Jika daftar kosong, tampilkan pesan
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.search_off,
-                              size: 60,
-                              color: Colors.grey,
-                            ),
-                            SizedBox(height: 16),
-                            Text(
-                              'Tidak ada lowongan ditemukan',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey[700],
-                              ),
-                            ),
-                            Text(
-                              'Coba ubah filter pencarian Anda.',
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-
-                    return ListView.builder(
-                      itemCount: jobList.length,
-                      itemBuilder: (context, index) {
-                        final Datum jobData = jobList[index];
-                        return JobListItemCard(jobData: jobData);
-                      },
-                    );
-                  }
-
-                  return SizedBox.shrink();
-                },
-              ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.logout),
+              tooltip: 'Logout',
+              onPressed: () {
+                // 1. Panggil BLoC event untuk logout
+                context.read<AuthBloc>().add(const AuthLogoutPressed());
+              },
             ),
           ],
         ),
-      ),
-    );
+        backgroundColor: Colors.white,
+        body: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      // --- 3. GUNAKAN 'onChanged' ---
+                      onChanged: (query) {
+                        // Kirim event ke BLoC setiap kali teks berubah
+                        context.read<JobListBloc>().add(
+                          SearchQueryChanged(query),
+                        );
+                      },
+
+                      decoration: InputDecoration(
+                        hintText: "Cari Lowongan",
+                        suffixIcon: Icon(Icons.search, color: Colors.grey),
+                        filled: true,
+                        fillColor: Colors.white,
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8.0),
+                          borderSide: BorderSide(
+                            color: customOutlineColor,
+                            width: 2.0,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8.0),
+                          borderSide: BorderSide(
+                            color: customOutlineColor,
+                            width: 2.0,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 8.0),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8.0),
+                      border: Border.all(color: customOutlineColor, width: 2.0),
+                    ),
+                    child: IconButton(
+                      icon: Image.asset(
+                        "assets/icons/ic_filter.png",
+                        width: 24,
+                        height: 24,
+                        color: Colors.black87,
+                      ),
+                      onPressed: () {
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(20.0),
+                            ),
+                          ),
+                          builder: (ctx) {
+                            return FilterWidgetContent(
+                              // 1. PERBARUI 'onFilterApply'
+                              onFilterApply: (Map<String, String> filters) {
+                                // 'filters' adalah Map yang kita kirim dari langkah 1
+
+                                // 2. Tutup bottom sheet
+                                Navigator.pop(context);
+
+                                // 3. (UNTUK TES) Cetak data filter ke konsol
+                                print("Filter yang dipilih: $filters");
+                                context.read<JobListBloc>().add(
+                                  FetchJobList(filters: filters),
+                                );
+                              },
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+
+              SizedBox(height: 20),
+
+              Expanded(
+                child: BlocBuilder<JobListBloc, JobListState>(
+                  builder: (context, state) {
+                    // state ketika loading bang
+                    if (state is JobListLoading || state is JobListInitial) {
+                      return ListView.builder(
+                        itemCount: 5, // Tampilkan 5 skeleton item
+                        itemBuilder: (context, index) {
+                          return JobListItemSkeleton(); // Panggil widget skeleton
+                        },
+                      );
+                    }
+
+                    //state ketika erorr connection
+                    if (state is JobListError) {
+                      // --- 3. BEDAKAN TIPE ERROR ---
+                      if (state.message.contains("Tidak ada koneksi")) {
+                        // Tampilkan halaman error koneksi
+                        return ErorrConnection(); // (Pastikan nama class-nya benar)
+                      } else {
+                        // TAMBAHKAN 'ELSE' UNTUK ERROR LAIN (401, 500, dll)
+                        return ErorrServer(
+                          onRetry: () {
+                            context.read<JobListBloc>().add(FetchJobList());
+                          },
+                        );
+                      }
+                    }
+
+                    if (state is JobListLoaded) {
+                      final jobList = state.jobModel.data;
+
+                      if (jobList.isEmpty) {
+                        // Jika daftar kosong, tampilkan pesan
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.search_off,
+                                size: 60,
+                                color: Colors.grey,
+                              ),
+                              SizedBox(height: 16),
+                              Text(
+                                'Tidak ada lowongan ditemukan',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                              Text(
+                                'Coba ubah filter pencarian Anda.',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      return ListView.builder(
+                        itemCount: jobList.length,
+                        itemBuilder: (context, index) {
+                          final Datum jobData = jobList[index];
+                          return JobListItemCard(jobData: jobData);
+                        },
+                      );
+                    }
+
+                    return SizedBox.shrink();
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ), // <-- TUTUP UNTUK 'child: Scaffold(...)'
+    ); // <-- TUTUP UNTUK 'BlocListener(...)'
   }
 }

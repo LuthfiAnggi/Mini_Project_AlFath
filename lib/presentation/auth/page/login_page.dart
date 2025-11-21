@@ -1,10 +1,16 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 // Pastikan nama proyek Anda benar
 import 'package:mini_project1/config/theme_config.dart';
 import 'package:mini_project1/gen/assets.gen.dart';
+import 'package:mini_project1/presentation/auth/bloc/auth_bloc.dart';
 import 'package:mini_project1/presentation/auth/page/login_email_page.dart';
 import 'package:mini_project1/presentation/auth/widget/auth_background_widget.dart';
+
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mini_project1/presentation/work/page/work_page.dart';
+import 'package:mini_project1/core/data/service/google_sign_in_service.dart';
 
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
@@ -13,14 +19,35 @@ class LoginPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: ThemeConfig.primaryDefault,
-      body: Stack(
-        children: [
-          // 2. BACKGROUND YANG SAMA
-          const AuthBackgroundWidget(),
+      body: BlocListener<AuthBloc, AuthState>(
+        listener: (context, state) {
+          if (state is AuthLoginSuccess) {
+            // JIKA LOGIN SUKSES (DARI GOOGLE ATAU DARI EMAIL)
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                // Pindah ke halaman daftar pekerjaan
+                builder: (context) => const JobListPage(),
+              ),
+              (route) => false, // Hapus semua halaman auth
+            );
+          } else if (state is AuthLoginFailure) {
+            // JIKA LOGIN GAGAL
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(state.error), backgroundColor: Colors.red),
+            );
+          }
+        },
+        child: Stack(
+          // <-- Stack Anda sekarang ada di dalam 'child'
+          children: [
+            // 2. BACKGROUND YANG SAMA
+            const AuthBackgroundWidget(),
 
-          // 3. KONTEN BARU
-          const _BuildContent(),
-        ],
+            // 3. KONTEN BARU
+            const _BuildContent(),
+          ],
+        ),
       ),
     );
   }
@@ -70,11 +97,11 @@ class _BuildContent extends StatelessWidget {
               // 2. Tombol Google (BARU)
               _buildLoginButton(
                 context,
-                // Pastikan nama aset ini ada
                 iconAsset: Assets.icons.icGoogle,
                 text: "Lanjutkan dengan Google",
                 onPressed: () {
-                  // Aksi login Google
+                  // Panggil method helper kita
+                  _handleGoogleSignIn(context);
                 },
               ),
               const SizedBox(height: 16),
@@ -103,6 +130,70 @@ class _BuildContent extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _handleGoogleSignIn(BuildContext context) async {
+    print("DEBUG: _handleGoogleSignIn() dipanggil!");
+
+    try {
+      print("DEBUG: Memanggil GoogleSignInService.login() ...");
+      final GoogleSignInAccount? account = await GoogleSignInService.login();
+
+      print("DEBUG: GoogleSignInService.login() selesai.");
+      print("DEBUG: Account: $account");
+
+      if (account == null) {
+        print("DEBUG: USER MEMBATALKAN LOGIN.");
+        return;
+      }
+
+      print("DEBUG: Mendapatkan authentication...");
+      final GoogleSignInAuthentication auth = await account.authentication;
+
+      print("DEBUG: auth.accessToken = ${auth.accessToken}");
+      print("DEBUG: auth.idToken = ${auth.idToken}");
+
+      final String? idToken = auth.idToken;
+
+      if (idToken == null) {
+        print("ERROR: idToken NULL !!!!!");
+        throw Exception('Gagal mendapatkan idToken dari Google.');
+      }
+
+      print("DEBUG: idToken berhasil didapat!");
+      print("Google ID Token: $idToken");
+
+      // =============== SPLIT TOKEN ===============
+      final tokenParts = idToken.split('.');
+      print("TOKEN LENGTH: ${tokenParts.length}");
+
+      if (tokenParts.length == 3) {
+        print("PART 1 (HEADER): ${tokenParts[0]}");
+        print("PART 2 (PAYLOAD): ${tokenParts[1]}");
+        print("PART 3 (SIGNATURE): ${tokenParts[2]}");
+      } else {
+        print("WARNING: TOKEN TIDAK VALID (bukan 3 part)");
+      }
+      // ===========================================
+
+      print("============== Print Data User ==============");
+      print("USER NAME: ${account.displayName}");
+      print("USER EMAIL: ${account.email}");
+
+      print("DEBUG: Mengirim token ke BLoC...");
+      if (context.mounted) {
+        context.read<AuthBloc>().add(AuthGoogleSignInPressed(idToken));
+      }
+    } catch (e, stack) {
+      print("ERROR TERJADI SAAT LOGIN GOOGLE: $e");
+      print("STACKTRACE: $stack");
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Login Google Gagal: $e')));
+      }
+    }
   }
 
   // --- WIDGET HELPER UNTUK TOMBOL ---

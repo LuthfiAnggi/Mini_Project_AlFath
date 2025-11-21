@@ -10,12 +10,17 @@ import 'package:mini_project1/presentation/onboarding/page/onboarding1_page.dart
 import 'core/data/datasource/job_remote_datasource.dart';
 import 'presentation/work/bloc/job_list/job_list_bloc.dart';
 import 'presentation/work/bloc/job_detail/job_detail_bloc.dart';
-import 'presentation/work/page/work_page.dart';// Ganti nama proyek Anda
+import 'presentation/work/page/work_page.dart'; // Ganti nama proyek Anda
 import 'package:hive_flutter/hive_flutter.dart';
+
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
 void main() async {
   // 1. Pastikan Flutter siap
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // 2. Inisialisasi Hive
   await Hive.initFlutter();
@@ -24,34 +29,32 @@ void main() async {
   await Hive.openBox('auth');
 
   // 4. Jalankan aplikasi
-  runApp(MyApp());
+
+  final sessionService = SessionService();
+  final token = sessionService.getToken();
+  runApp(MyApp(token: token));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final String? token;
+  const MyApp({super.key, this.token});
 
   @override
   Widget build(BuildContext context) {
     // 1. Kita daftarkan semua Repository/Service di sini
     return MultiRepositoryProvider(
       providers: [
-
         RepositoryProvider(create: (context) => SessionService()),
 
         RepositoryProvider(
-          create: (context) => AuthRemoteDatasource(context.read<SessionService>()), 
+          create: (context) =>
+              AuthRemoteDatasource(context.read<SessionService>()),
         ),
 
         RepositoryProvider(create: (context) => ApiService()),
-       
-        RepositoryProvider(
-          create: (context) => Connectivity(),
-        ),
 
-       
-        
+        RepositoryProvider(create: (context) => Connectivity()),
       ],
-      
 
       // 2. Kita daftarkan semua BLoC di sini
       child: MultiBlocProvider(
@@ -73,7 +76,7 @@ class MyApp extends StatelessWidget {
           BlocProvider(
             create: (context) => AuthBloc(
               // 3. "AMBIL" DATASOURCE DARI ATAS DAN BERIKAN KE BLOC
-              context.read<AuthRemoteDatasource>(), 
+              context.read<AuthRemoteDatasource>(),
               context.read<SessionService>(),
             ),
           ),
@@ -85,7 +88,9 @@ class MyApp extends StatelessWidget {
           theme: ThemeConfig.lightMode,
           debugShowCheckedModeBanner: false,
           // home: JobListPage(),
-          home: OnboardingPage(), // <-- Halaman utama Anda
+          home: token != null
+              ? const JobListPage() // JIKA ADA TOKEN: langsung ke Home
+              : const OnboardingPage(),
         ),
       ),
     );
